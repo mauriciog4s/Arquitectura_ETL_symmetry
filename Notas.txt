@@ -16,3 +16,5 @@ Esto debe ser simple, practico y autonomo. la herramienta a usar claramente usam
 
 7. nombre de la Hoja: ETL_Symmetry: https://docs.google.com/spreadsheets/d/1ptkkcxqZRF5UT8tVMzCgLhxkbfhfYVNp8_Q6sK2wymQ/edit?gid=0#gid=0
 8. Url del folder donde se almacena el google sheet transacional: https://drive.google.com/drive/folders/1ymvIjFzdHf3g1IXHsl0Bn2qw546O_H_g
+
+9. Hay algo importante: aún no tengo el dataset en BigQuery, así que debo proponer la estructura de esa tabla también para que todo converja.
