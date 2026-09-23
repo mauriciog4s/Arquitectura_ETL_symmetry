@@ -12,4 +12,7 @@ Una persona semanalmente sube un archivo CSV (solo en este formato); esto contie
 
 5. Formatear DataCardHolderTransactions_TransactionTime, que viene: 15 September 2026 23:58, con un formato lógico para BigQuery, así como los encabezados de Google Sheet (Transaccional), que claramente no deben tener nombres separados ni caracteres (aplicando estructura limpia de bases de datos)
 
-Esto debe ser simple, practico y autonomo. la herramienta a usar claramente es google Appscript
+Esto debe ser simple, practico y autonomo. la herramienta a usar claramente usamos google Appscript
+
+7. nombre de la Hoja: ETL_Symmetry: https://docs.google.com/spreadsheets/d/1ptkkcxqZRF5UT8tVMzCgLhxkbfhfYVNp8_Q6sK2wymQ/edit?gid=0#gid=0
+8. Url del folder donde se almacena el google sheet transacional: https://drive.google.com/drive/folders/1ymvIjFzdHf3g1IXHsl0Bn2qw546O_H_g
