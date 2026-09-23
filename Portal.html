@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<title>Portal ETL Symmetry</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f6f6f4; --surface: #fcfcfb; --surface-2: #f0efec; --border: #e2e1dc;
+    --text: #0b0b0b; --text-2: #52514e; --muted: #8a8984;
+    --accent: #2a78d6; --series-1: #2a78d6; --series-2: #eb6834;
+    --good: #0ca30c; --good-bg: #e6f5e6; --warn: #b77800; --warn-bg: #fdf3dc;
+    --crit: #d03b3b; --crit-bg: #fbe9e9; --info: #2a78d6; --info-bg: #e8f1fc;
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #121211; --surface: #1a1a19; --surface-2: #262624; --border: #33332f;
+      --text: #ffffff; --text-2: #c3c2b7; --muted: #8f8e86;
+      --accent: #3987e5; --series-1: #3987e5; --series-2: #d95926;
+      --good: #3fc43f; --good-bg: #16301a; --warn: #fab219; --warn-bg: #342a12;
+      --crit: #ef6b6b; --crit-bg: #3a1c1c; --info: #6da7ec; --info-bg: #17263a;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #121211; --surface: #1a1a19; --surface-2: #262624; --border: #33332f;
+    --text: #ffffff; --text-2: #c3c2b7; --muted: #8f8e86;
+    --accent: #3987e5; --series-1: #3987e5; --series-2: #d95926;
+    --good: #3fc43f; --good-bg: #16301a; --warn: #fab219; --warn-bg: #342a12;
+    --crit: #ef6b6b; --crit-bg: #3a1c1c; --info: #6da7ec; --info-bg: #17263a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 20px 16px 48px; }
+  header { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  h1 { font-size: 20px; margin: 0; letter-spacing: -.01em; }
+  .sub { color: var(--text-2); font-size: 13px; }
+  .links { display: flex; gap: 14px; font-size: 13px; flex-wrap: wrap; margin-top: 4px; }
+  .acciones { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  button { font: inherit; border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    padding: 7px 14px; border-radius: 8px; cursor: pointer; }
+  button:hover { background: var(--surface-2); }
+  button.primario { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primario:hover { filter: brightness(1.08); }
+  button:disabled { opacity: .55; cursor: wait; }
+  button.mini { padding: 3px 10px; font-size: 12px; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; font-weight: 600; font-size: 13px; }
+  .pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .ok { color: var(--good); background: var(--good-bg); }
+  .warn { color: var(--warn); background: var(--warn-bg); }
+  .crit { color: var(--crit); background: var(--crit-bg); }
+  .info { color: var(--info); background: var(--info-bg); }
+  .neutro { color: var(--text-2); background: var(--surface-2); }
+  .aviso { padding: 10px 14px; border-radius: var(--radius); margin-bottom: 12px; font-size: 13.5px; }
+  .aviso .sub { font-size: 12px; }
+  .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); margin-bottom: 16px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+  .kpi .v { font-size: 26px; font-weight: 650; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .kpi .l { color: var(--text-2); font-size: 12.5px; }
+  .kpi .s { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .barra { height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; margin-top: 8px; }
+  .barra > i { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+  .actual { margin-bottom: 16px; }
+  .actual h2, .panel h2 { font-size: 15px; margin: 0 0 4px; }
+  .pasos { display: flex; gap: 0; margin: 16px 0 12px; overflow-x: auto; }
+  .paso { flex: 1; min-width: 92px; text-align: center; position: relative; font-size: 12.5px; color: var(--muted); }
+  .paso .c { width: 28px; height: 28px; border-radius: 50%; margin: 0 auto 6px; display: grid; place-items: center;
+    border: 2px solid var(--border); background: var(--surface); font-weight: 700; font-size: 13px; position: relative; z-index: 1; }
+  .paso::after { content: ""; position: absolute; top: 14px; left: calc(50% + 16px); right: calc(-50% + 16px); height: 2px; background: var(--border); }
+  .paso:last-child::after { display: none; }
+  .paso.hecho { color: var(--text); }
+  .paso.hecho .c { background: var(--good); border-color: var(--good); color: #fff; }
+  .paso.hecho::after { background: var(--good); }
+  .paso.activo { color: var(--info); font-weight: 600; }
+  .paso.activo .c { border-color: var(--info); color: var(--info); animation: pulso 1.4s infinite; }
+  .paso.fallo { color: var(--crit); font-weight: 600; }
+  .paso.fallo .c { background: var(--crit); border-color: var(--crit); color: #fff; }
+  @keyframes pulso { 50% { box-shadow: 0 0 0 5px var(--info-bg); } }
+  .datos { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px 16px; font-size: 13px; }
+  .datos b { display: block; font-size: 15px; font-variant-numeric: tabular-nums; }
+  .datos span { color: var(--text-2); font-size: 12px; }
+  .msg { margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: var(--surface-2); font-size: 13px; }
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 12px; overflow-x: auto; }
+  .tab { border: 0; background: none; border-bottom: 2px solid transparent; border-radius: 0; padding: 8px 14px; color: var(--text-2); white-space: nowrap; }
+  .tab:hover { background: none; color: var(--text); }
+  .tab.sel { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+  .tab .n { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--surface-2); margin-left: 4px; }
+  .filtros { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  input, select { font: inherit; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); }
+  input { flex: 1; min-width: 180px; }
+  .tabla { overflow: auto; max-height: 560px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+  th { position: sticky; top: 0; background: var(--surface-2); text-align: left; font-weight: 600; color: var(--text-2);
+    padding: 8px 10px; white-space: nowrap; z-index: 1; }
+  td { padding: 7px 10px; border-top: 1px solid var(--border); vertical-align: top; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.nw { white-space: nowrap; }
+  td.msgcol { min-width: 280px; }
+  @media (max-width: 600px) { .paso { min-width: 64px; font-size: 11.5px; } }
+  .badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+  details summary { cursor: pointer; color: var(--accent); font-size: 12px; }
+  details pre { white-space: pre-wrap; word-break: break-word; font-size: 11.5px; background: var(--surface-2); padding: 8px; border-radius: 6px; margin: 6px 0 0; max-width: 700px; }
+  .vacio { padding: 28px; text-align: center; color: var(--muted); }
+  .oculto { display: none !important; }
+  .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg);
+    padding: 10px 16px; border-radius: 8px; font-size: 13px; max-width: 92vw; box-shadow: 0 6px 24px rgba(0,0,0,.2); z-index: 10; }
+  .cargando { color: var(--muted); padding: 40px; text-align: center; }
+  .dos { display: grid; gap: 12px; grid-template-columns: 2fr 1fr; }
+  @media (max-width: 800px) { .dos { grid-template-columns: 1fr; } }
+  .chart { display: flex; align-items: flex-end; gap: 2px; height: 180px; padding: 8px 0 0; border-bottom: 1px solid var(--border); }
+  .col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px; height: 100%; cursor: default; min-width: 4px; }
+  .col i { display: block; }
+  .col i.s1 { background: var(--series-1); }
+  .col i.s2 { background: var(--series-2); }
+  .col i.s0 { background: var(--muted); }
+  .col i:first-child { border-radius: 4px 4px 0 0; }
+  .col:hover i { filter: brightness(1.12); }
+  .ejes { display: flex; justify-content: space-between; color: var(--muted); font-size: 11px; margin-top: 4px; }
+  .leyenda { display: flex; gap: 14px; font-size: 12px; color: var(--text-2); margin: 6px 0 0; }
+  .leyenda i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+  .hbar { display: grid; grid-template-columns: minmax(110px, 1.7fr) 1.3fr auto; gap: 8px; align-items: center; font-size: 12px; margin: 6px 0; }
+  .hbar .t { height: 10px; background: var(--surface-2); border-radius: 0 4px 4px 0; }
+  .hbar .t i { display: block; height: 100%; background: var(--series-1); border-radius: 0 4px 4px 0; }
+  .hbar .lab { color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tip { position: fixed; pointer-events: none; background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    padding: 8px 10px; border-radius: 8px; font-size: 12px; box-shadow: 0 6px 20px rgba(0,0,0,.15); z-index: 20; }
+  .tip b { font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>ETL Symmetry</h1>
+      <div class="sub">CSV en Drive → Google Sheet "Transaccional" → BigQuery · <span id="ultima">cargando…</span></div>
+      <div class="links" id="links"></div>
+    </div>
+    <div class="acciones">
+      <span id="estadoGeneral" class="pill neutro">Cargando</span>
+      <button id="btnActualizar" onclick="cargar()">Actualizar</button>
+      <button id="btnProcesar" class="primario" onclick="procesarAhora()">Procesar ahora</button>
+    </div>
+  </header>
+
+  <div id="contenido" class="cargando">Cargando información…</div>
+</div>
+<div id="toast" class="toast oculto"></div>
+<div id="tip" class="tip oculto"></div>
+
+<script>
+  const PASOS = ['Recibo', 'Organizo (Sheet)', 'Envío (BigQuery)', 'Consolido', 'Verifico', 'Limpio'];
+  const ORDEN = { RECIBIDO: 1, ORGANIZANDO: 1.5, ORGANIZADO: 2, ENVIANDO: 2.5, ENVIADO: 3, CONSOLIDANDO: 3.5,
+    CONSOLIDADO: 4, VERIFICADO: 5, COMPLETADO: 6 };
+  const TERMINALES = ['COMPLETADO', 'ERROR', 'DUPLICADO', 'IGNORADO'];
+  const AYUDA_ESTADO = {
+    RECIBIDO: 'En cola', ORGANIZANDO: 'Escribiendo en el Sheet', ORGANIZADO: 'Listo para enviar',
+    ENVIANDO: 'Enviando a BigQuery', ENVIADO: 'En staging', CONSOLIDANDO: 'Consolidando', CONSOLIDADO: 'Por verificar',
+    VERIFICADO: 'Por limpiar', COMPLETADO: 'Completado', ERROR: 'Error', DUPLICADO: 'Duplicado', IGNORADO: 'Ignorado',
+  };
+  let D = null, tabActual = 'archivos', bq = null;
+
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const num = v => (v === '' || v == null || isNaN(+v)) ? '—' : (+v).toLocaleString('es-CO');
+  const aObj = (cols, filas) => filas.map(f => { const o = {}; cols.forEach((c, i) => o[c] = f[i]); return o; });
+
+  function claseEstado(e) {
+    if (e === 'COMPLETADO') return 'ok';
+    if (e === 'ERROR') return 'crit';
+    if (e === 'DUPLICADO' || e === 'IGNORADO') return 'neutro';
+    return 'info';
+  }
+  function claseNivel(n) { return n === 'ERROR' ? 'crit' : n === 'ADVERTENCIA' ? 'warn' : 'neutro'; }
+
+  function toast(msg, ms) {
+    const t = $('#toast'); t.textContent = msg; t.classList.remove('oculto');
+    clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.add('oculto'), ms || 5000);
+  }
+
+  function cargar() {
+    $('#btnActualizar').disabled = true;
+    google.script.run
+      .withSuccessHandler(d => { $('#btnActualizar').disabled = false; D = d; render(); })
+      .withFailureHandler(e => { $('#btnActualizar').disabled = false; $('#contenido').innerHTML =
+        '<div class="card crit">No se pudo leer la información: ' + esc(e.message) + '</div>'; })
+      .obtenerDatosPortal();
+  }
+
+  function procesarAhora() {
+    const b = $('#btnProcesar'); b.disabled = true; b.textContent = 'Procesando… (hasta 5 min)';
+    google.script.run
+      .withSuccessHandler(r => { b.disabled = false; b.textContent = 'Procesar ahora'; toast(r, 8000); cargar(); })
+      .withFailureHandler(e => { b.disabled = false; b.textContent = 'Procesar ahora'; toast('Error: ' + e.message, 10000); cargar(); })
+      .portalProcesarAhora();
+  }
+
+  function reintentar(id) {
+    if (!confirm('¿Volver a procesar la carga ' + id + ' desde el CSV original?')) return;
+    google.script.run
+      .withSuccessHandler(r => { toast(r, 8000); cargar(); })
+      .withFailureHandler(e => toast('Error: ' + e.message, 10000))
+      .portalReintentar(id);
+  }
+
+  function render() {
+    const cargas = aObj(D.columnasCargas, D.cargas);
+    const log = aObj(D.columnasLog, D.log);
+    const errores = aObj(D.columnasErrores, D.errores);
+    const c = D.config;
+
+    $('#links').innerHTML = [
+      ['Google Sheet', c.sheetUrl], ['Carpeta de CSV', c.carpetaUrl], ['BigQuery', c.bqUrl],
+    ].map(([t, u]) => `<a href="${esc(u)}" target="_blank" rel="noopener">${t} ↗</a>`).join('');
+
+    const u = D.ultima;
+    $('#ultima').textContent = (u ? `Última ejecución ${u.fecha} (${u.resultado}, ${u.duracion_seg || 0} s)` : 'Aún no se ha ejecutado') +
+      ` · revisión automática cada ${c.programacion}`;
+
+    const activos = cargas.filter(x => !TERMINALES.includes(x.estado));
+    const conError = cargas.filter(x => x.estado === 'ERROR');
+    const completados = cargas.filter(x => x.estado === 'COMPLETADO');
+    let eg;
+    if (!D.automatizacion) eg = ['warn', 'Automatización pausada'];
+    else if ((u && u.resultado === 'ERROR') || conError.length) eg = ['crit', 'Requiere atención'];
+    else if (activos.length) eg = ['info', 'Procesando'];
+    else if (D.controlSemanal && D.controlSemanal.resultado === 'FALTA') eg = ['warn', 'Falta el CSV de la semana'];
+    else eg = ['ok', 'Al día'];
+    $('#estadoGeneral').className = 'pill ' + eg[0];
+    $('#estadoGeneral').textContent = eg[1];
+
+    const nuevas = completados.reduce((t, x) => t + (+x.insertadas_bq || 0), 0);
+    const pctCeldas = Math.min(100, D.celdas / D.limiteCeldas * 100);
+    const cs = D.controlSemanal;
+    const semana = !cs ? `<div class="aviso neutro">📅 Aún no se ha hecho la primera revisión semanal (${esc(c.programacion)}).</div>`
+      : cs.resultado === 'OK'
+        ? `<div class="aviso ok">✓ <b>Archivo de la semana recibido.</b> ${esc(cs.mensaje.replace(/^CSV de la semana recibido:?\s*/, ''))} <span class="sub">· revisado ${esc(cs.fecha)}</span></div>`
+        : `<div class="aviso warn">⚠ <b>No ha llegado el CSV de esta semana.</b> Se avisó ${cs.recordatorios > 1 ? cs.recordatorios + ' veces' : ''} a
+           ${esc(c.responsable || 'usted (configure EMAIL_RESPONSABLE_CARGA para avisar a quien lo carga)')}.
+           ${cs.proxima ? 'Próxima revisión: ' + esc(cs.proxima) + '.' : 'Se revisa de nuevo el ' + esc(c.programacion) + '.'}
+           <span class="sub">· revisado ${esc(cs.fecha)}</span></div>`;
+    const kpis = semana + `
+      <div class="grid">
+        <div class="card kpi"><div class="l">Archivos completados</div><div class="v">${num(completados.length)}</div>
+          <div class="s">${num(cargas.length)} detectados en total</div></div>
+        <div class="card kpi"><div class="l">Transacciones nuevas en BigQuery</div><div class="v">${num(nuevas)}</div>
+          <div class="s">sumando todas las cargas</div></div>
+        <div class="card kpi"><div class="l">En cola / en curso</div><div class="v">${num(activos.length)}</div>
+          <div class="s">Sheet Transaccional: ${num(D.filasTransaccional)} filas</div></div>
+        <div class="card kpi"><div class="l">Archivos con error</div><div class="v" style="color:${conError.length ? 'var(--crit)' : 'inherit'}">${num(conError.length)}</div>
+          <div class="s">${conError.length ? 'ver pestaña Archivos → Reintentar' : 'sin pendientes'}</div></div>
+        <div class="card kpi"><div class="l">Celdas usadas del Sheet</div><div class="v">${pctCeldas.toFixed(1)} %</div>
+          <div class="s">${num(D.celdas)} de ${num(D.limiteCeldas)}</div><div class="barra"><i style="width:${pctCeldas}%"></i></div></div>
+      </div>`;
+
+    const foco = activos.length ? (activos.find(x => x.estado !== 'RECIBIDO') || activos[activos.length - 1]) : cargas.find(x => x.estado === 'COMPLETADO' || x.estado === 'ERROR');
+    const actual = foco ? tarjetaCarga(foco, !!activos.length) :
+      '<div class="card actual"><h2>Sin cargas todavía</h2><div class="sub">Cuando se suba un CSV a la carpeta, se procesará en la revisión del ' + esc(c.programacion) + ' (o pulse "Procesar ahora").</div></div>';
+
+    $('#contenido').className = '';
+    $('#contenido').innerHTML = kpis + actual + `
+      <div class="tabs">
+        <button class="tab" data-t="archivos">Archivos <span class="n">${cargas.length}</span></button>
+        <button class="tab" data-t="log">Log <span class="n">${log.length}</span></button>
+        <button class="tab" data-t="errores">Errores de datos <span class="n">${errores.length}</span></button>
+        <button class="tab" data-t="bigquery">BigQuery</button>
+      </div>
+      <div id="panel-archivos" class="panel">${tablaArchivos(cargas)}</div>
+      <div id="panel-log" class="panel">
+        <div class="filtros">
+          <select id="fNivel"><option value="">Todos los niveles</option><option>INFO</option><option>ADVERTENCIA</option><option>ERROR</option></select>
+          <select id="fEtapa"><option value="">Todas las etapas</option>${[...new Set(log.map(l => l.etapa))].sort().map(e => `<option>${esc(e)}</option>`).join('')}</select>
+          <input id="fTexto" placeholder="Buscar en mensajes, archivo o id de carga…">
+        </div>
+        <div id="tablaLog"></div>
+      </div>
+      <div id="panel-errores" class="panel">${tablaErrores(errores)}</div>
+      <div id="panel-bigquery" class="panel">
+        <div class="filtros"><button id="btnBQ" onclick="consultarBQ()">Consultar BigQuery en vivo</button>
+          <span class="sub" style="align-self:center">Consulta pequeña a la tabla <b>${esc(c.dataset)}.transacciones</b></span></div>
+        <div id="bqRes">${bq ? '' : '<div class="card vacio">Pulse el botón para ver los totales actuales en BigQuery.</div>'}</div>
+      </div>`;
+
+    document.querySelectorAll('.tab').forEach(b => b.onclick = () => mostrarTab(b.dataset.t));
+    ['#fNivel', '#fEtapa', '#fTexto'].forEach(s => $(s).oninput = () => pintarLog(log));
+    pintarLog(log);
+    if (bq) pintarBQ(bq);
+    mostrarTab(tabActual);
+  }
+
+  function tarjetaCarga(r, enCurso) {
+    const fallo = r.estado === 'ERROR';
+    const pos = fallo ? (ORDEN[r.fallo_en] || 0) : (ORDEN[r.estado] || 0);
+    const pasos = PASOS.map((p, i) => {
+      const n = i + 1;
+      let cls = '', icono = n;
+      if (n <= Math.floor(pos)) { cls = 'hecho'; icono = '✓'; }
+      else if (n === Math.floor(pos) + 1 && fallo) { cls = 'fallo'; icono = '✕'; }
+      else if (n === Math.floor(pos) + 1 && pos % 1 !== 0) cls = 'activo';
+      return `<div class="paso ${cls}"><div class="c">${icono}</div>${p}</div>`;
+    }).join('');
+    const prog = r.estado === 'ORGANIZANDO' && +r.validas ? ` · ${Math.round(+r.progreso / +r.validas * 100)} % escrito` : '';
+    return `<div class="card actual">
+      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
+        <div><h2>${enCurso ? 'Carga en curso' : 'Última carga'}: ${esc(r.archivo)}</h2>
+          <div class="sub">Carga ${esc(r.id_carga)} · detectado ${esc(r.detectado_en)}${r.fin ? ' · terminó ' + esc(r.fin) : ''}${prog}</div></div>
+        <span class="pill ${claseEstado(r.estado)}">${esc(AYUDA_ESTADO[r.estado] || r.estado)}</span>
+      </div>
+      <div class="pasos">${pasos}</div>
+      <div class="datos">
+        <div><b>${num(r.filas_csv)}</b><span>filas crudas en el CSV</span></div>
+        <div><b>${num(r.transacciones)}</b><span>transacciones reconstruidas</span></div>
+        <div><b>${num(r.validas)}</b><span>válidas</span></div>
+        <div><b>${num(r.rechazadas)}</b><span>rechazadas</span></div>
+        <div><b>${num(r.duplicadas_archivo)}</b><span>repetidas en el archivo</span></div>
+        <div><b>${num(r.sin_cedula)}</b><span>sin cédula</span></div>
+        <div><b>${num(r.insertadas_bq)}</b><span>nuevas en BigQuery</span></div>
+        <div><b>${num(r.ya_existian_bq)}</b><span>ya existían</span></div>
+        <div><b>${esc(r.fecha_min || '—')}</b><span>primera transacción</span></div>
+        <div><b>${esc(r.fecha_max || '—')}</b><span>última transacción</span></div>
+      </div>
+      ${r.ultimo_mensaje ? `<div class="msg ${fallo ? 'crit' : ''}">${esc(r.ultimo_mensaje)}${fallo ?
+        ` <button class="mini" onclick="reintentar('${esc(r.id_carga)}')">Reintentar</button>` : ''}</div>` : ''}
+    </div>`;
+  }
+
+  function tablaArchivos(cargas) {
+    if (!cargas.length) return '<div class="card vacio">Todavía no se ha detectado ningún archivo.</div>';
+    return `<div class="tabla"><table><thead><tr>
+      <th>Detectado</th><th>Archivo</th><th>Estado</th><th>Transacciones</th><th>Válidas</th><th>Rechazadas</th>
+      <th>Nuevas BQ</th><th>Ya existían</th><th>Rango de fechas</th><th>Mensaje</th><th></th></tr></thead><tbody>` +
+      cargas.map(r => `<tr>
+        <td class="nw">${esc(r.detectado_en)}</td>
+        <td>${esc(r.archivo)}<div class="sub">${esc(r.id_carga)}</div></td>
+        <td><span class="badge ${claseEstado(r.estado)}">${esc(r.estado)}</span></td>
+        <td class="num">${num(r.transacciones)}</td><td class="num">${num(r.validas)}</td><td class="num">${num(r.rechazadas)}</td>
+        <td class="num">${num(r.insertadas_bq)}</td><td class="num">${num(r.ya_existian_bq)}</td>
+        <td class="nw">${r.fecha_min ? esc(r.fecha_min.slice(0, 10)) + ' → ' + esc(r.fecha_max.slice(0, 10)) : '—'}</td>
+        <td class="msgcol">${esc(r.ultimo_mensaje)}</td>
+        <td>${r.estado === 'ERROR' ? `<button class="mini" onclick="reintentar('${esc(r.id_carga)}')">Reintentar</button>` : ''}</td>
+      </tr>`).join('') + '</tbody></table></div>';
+  }
+
+  function pintarLog(log) {
+    const nivel = $('#fNivel').value, etapa = $('#fEtapa').value, txt = $('#fTexto').value.toLowerCase();
+    const filas = log.filter(l => (!nivel || l.nivel === nivel) && (!etapa || l.etapa === etapa) &&
+      (!txt || (l.mensaje + ' ' + l.archivo + ' ' + l.id_carga + ' ' + l.detalle).toLowerCase().includes(txt)));
+    $('#tablaLog').innerHTML = !filas.length ? '<div class="card vacio">Sin registros con ese filtro.</div>' :
+      `<div class="tabla"><table><thead><tr><th>Fecha</th><th>Nivel</th><th>Etapa</th><th>Archivo</th><th>Mensaje</th></tr></thead><tbody>` +
+      filas.map(l => `<tr>
+        <td class="nw">${esc(l.fecha_hora)}</td>
+        <td><span class="badge ${claseNivel(l.nivel)}">${esc(l.nivel)}</span></td>
+        <td class="nw">${esc(l.etapa)}</td>
+        <td>${esc(l.archivo)}</td>
+        <td>${esc(l.mensaje)}${l.detalle ? `<details><summary>detalle</summary><pre>${esc(formatear(l.detalle))}</pre></details>` : ''}</td>
+      </tr>`).join('') + '</tbody></table></div>';
+  }
+
+  function formatear(d) { try { return JSON.stringify(JSON.parse(d), null, 2); } catch (e) { return d; } }
+
+  function tablaErrores(errores) {
+    if (!errores.length) return '<div class="card vacio">No hay errores de datos registrados. 👍</div>';
+    return `<div class="sub" style="margin-bottom:8px">Filas del CSV (o del Sheet) que no se cargaron o que tienen advertencias. El CSV original nunca se modifica.</div>
+      <div class="tabla"><table><thead><tr><th>Fecha</th><th>Archivo</th><th>Fila</th><th>Tipo</th><th>Detalle</th><th>Datos originales</th></tr></thead><tbody>` +
+      errores.map(e => `<tr>
+        <td class="nw">${esc(e.fecha_hora)}</td><td>${esc(e.archivo)}</td><td class="num">${esc(e.fila_origen)}</td>
+        <td><span class="badge ${/NOMBRE_SIN|DUPLICADO_EN/.test(e.tipo_error) ? 'warn' : 'crit'}">${esc(e.tipo_error)}</span></td>
+        <td>${esc(e.detalle)}</td><td><code style="font-size:11.5px">${esc(e.datos_originales)}</code></td>
+      </tr>`).join('') + '</tbody></table></div>';
+  }
+
+  function mostrarTab(t) {
+    tabActual = t;
+    document.querySelectorAll('.tab').forEach(b => b.classList.toggle('sel', b.dataset.t === t));
+    document.querySelectorAll('.panel').forEach(p => p.classList.toggle('oculto', p.id !== 'panel-' + t));
+  }
+
+  function consultarBQ() {
+    const b = $('#btnBQ'); b.disabled = true; b.textContent = 'Consultando…';
+    google.script.run
+      .withSuccessHandler(r => { b.disabled = false; b.textContent = 'Consultar BigQuery en vivo'; bq = r; pintarBQ(r); })
+      .withFailureHandler(e => { b.disabled = false; b.textContent = 'Consultar BigQuery en vivo';
+        $('#bqRes').innerHTML = '<div class="card crit">Error consultando BigQuery: ' + esc(e.message) + '</div>'; })
+      .portalConsultarBigQuery();
+  }
+
+  function pintarBQ(r) {
+    const max = Math.max(1, ...r.dias.map(d => d.n));
+    const maxL = Math.max(1, ...r.lugares.map(l => l.n));
+    const cols = r.dias.map(d => {
+      const otro = d.n - d.entradas - d.salidas;
+      return `<div class="col" data-tip="${esc(d.dia)}|${d.n}|${d.entradas}|${d.salidas}|${otro}">
+        ${otro > 0 ? `<i class="s0" style="height:${otro / max * 100}%"></i>` : ''}
+        <i class="s2" style="height:${d.salidas / max * 100}%"></i>
+        <i class="s1" style="height:${d.entradas / max * 100}%"></i></div>`;
+    }).join('');
+    $('#bqRes').innerHTML = `
+      <div class="grid">
+        <div class="card kpi"><div class="l">Transacciones en BigQuery</div><div class="v">${num(r.total)}</div></div>
+        <div class="card kpi"><div class="l">Personas (cédulas distintas)</div><div class="v">${num(r.personas)}</div>
+          <div class="s">${num(r.sinCedula)} transacciones sin cédula</div></div>
+        <div class="card kpi"><div class="l">Cargas consolidadas</div><div class="v">${num(r.cargas)}</div>
+          <div class="s">última: ${esc(r.ultimaCarga || '—')}</div></div>
+        <div class="card kpi"><div class="l">Datos desde / hasta</div><div class="v" style="font-size:15px;padding-top:8px">${esc((r.fechaMin || '—').slice(0, 10))} → ${esc((r.fechaMax || '—').slice(0, 10))}</div></div>
+      </div>
+      <div class="dos">
+        <div class="card"><h2>Transacciones por día (últimos 30 días con datos)</h2>
+          <div class="leyenda"><span><i style="background:var(--series-1)"></i>Entradas</span><span><i style="background:var(--series-2)"></i>Salidas</span><span><i style="background:var(--muted)"></i>Otros</span></div>
+          ${r.dias.length ? `<div class="chart" id="chartDias">${cols}</div>
+          <div class="ejes"><span>${esc(r.dias[0].dia)}</span><span>${esc(r.dias[r.dias.length - 1].dia)}</span></div>` : '<div class="vacio">Sin datos</div>'}
+        </div>
+        <div class="card"><h2>Puntos de acceso más usados (7 días)</h2>
+          ${r.lugares.map(l => `<div class="hbar"><span class="lab" title="${esc(l.lugar)}">${esc(l.lugar)}</span>
+            <span class="t"><i style="width:${l.n / maxL * 100}%"></i></span><span>${num(l.n)}</span></div>`).join('') || '<div class="vacio">Sin datos</div>'}
+        </div>
+      </div>`;
+    const tip = $('#tip');
+    document.querySelectorAll('#chartDias .col').forEach(c => {
+      c.onmousemove = ev => {
+        const [dia, n, en, sa, ot] = c.dataset.tip.split('|');
+        tip.innerHTML = `<div>${esc(dia)}</div><div>Total <b>${num(n)}</b></div>
+          <div><span style="color:var(--series-1)">■</span> Entradas <b>${num(en)}</b></div>
+          <div><span style="color:var(--series-2)">■</span> Salidas <b>${num(sa)}</b></div>${+ot ? `<div>Otros <b>${num(ot)}</b></div>` : ''}`;
+        tip.classList.remove('oculto');
+        tip.style.left = Math.min(ev.clientX + 12, innerWidth - 170) + 'px';
+        tip.style.top = (ev.clientY + 12) + 'px';
+      };
+      c.onmouseleave = () => tip.classList.add('oculto');
+    });
+  }
+
+  cargar();
+  setInterval(() => { if (!document.hidden && !$('#btnProcesar').disabled) cargar(); }, 60000);
+</script>
+</body>
+</html>
