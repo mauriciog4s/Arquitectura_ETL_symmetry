@@ -1,0 +1,13 @@
+Necesito crear una arquitectura resiliente, constante y manejable. Consideraciones de implementación: Tengo un Chromebook; solo tengo acceso a herramientas de GoogleWorkspace. Esta es la lógica del flujo de trabajo: tengo un folder en mi Google Drive (https://drive.google.com/drive/folders/1ku053Dha1kGlXpKbvRDFgP6HEGpvbKEz).
+
+Una persona semanalmente sube un archivo CSV (solo en este formato); esto contiene los registros de transacciones de ingresos y salidas de una empresa nacional, con una particularidad: las filas están desajustadas. La columna: Text10 salta una fila, las columnas: DataCardHolderTransactions_FirstName y DataCardHolderTransactions_LastName no, pero las columnas: DataCardHolderTransactions_TransactionTime, Text6 y Text8 vuelven a saltar, por lo que es necesario organizar los datos (adjunto archivo de ejemplo).
+
+1. Paso: Organizar los registros; 2.º paso: Llevarlos a un Google Sheet (Transaccional) organizados, donde: Text10 = Cédula, DataCardHolderTransactions_FirstName = Nombres, DataCardHolderTransactions_LastName = Apellidos, DataCardHolderTransactions_TransactionTime = Fecha del paso de la tarjeta en un formato: 27 July 2026 6:49 (ojo al formato), Text6 = lugar donde se hizo la transacción o se pasó la tarjeta de acceso, Text8 = valor único de esa transacción. Como un solo reporte puede tener más de 131.583 filas, claramente el Google Sheet (Transaccional) agotará la cuota de cantidad de celdas permitidas.
+
+2. Se usará BigQuery para subir los informes; se limpiará el Google Sheet (Transaccional) para recibir otro reporte CSV y así cada vez.
+
+3. Necesitaremos un control de archivos nuevos CSV, para no volver a subir lo que ya existe, log y auditoría de lo que se realizó, no sobreponer y no perder datos, un log completo y bien estructurado con mucha claridad del proceso ejecutado: recibo, envío, limpio, recibo...
+
+4. Implementación de manejo de errores en dos vías: identificar todos los posibles errores en Google Sheet (transaccional), ida y vuelta; todos los posibles errores en la tabla que recibe los reportes en BigQuery, ida y vuelta
+
+5. Formatear DataCardHolderTransactions_TransactionTime, que viene: 15 September 2026 23:58, con un formato lógico para BigQuery, así como los encabezados de Google Sheet (Transaccional), que claramente no deben tener nombres separados ni caracteres (aplicando estructura limpia de bases de datos)
