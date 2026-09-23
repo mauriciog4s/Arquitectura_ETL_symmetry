@@ -11,3 +11,5 @@ Una persona semanalmente sube un archivo CSV (solo en este formato); esto contie
 4. Implementación de manejo de errores en dos vías: identificar todos los posibles errores en Google Sheet (transaccional), ida y vuelta; todos los posibles errores en la tabla que recibe los reportes en BigQuery, ida y vuelta
 
 5. Formatear DataCardHolderTransactions_TransactionTime, que viene: 15 September 2026 23:58, con un formato lógico para BigQuery, así como los encabezados de Google Sheet (Transaccional), que claramente no deben tener nombres separados ni caracteres (aplicando estructura limpia de bases de datos)
+
+Esto debe ser simple, practico y autonomo. la herramienta a usar claramente es google Appscript
