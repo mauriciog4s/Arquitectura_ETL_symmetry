@@ -25,19 +25,18 @@ Resumen de la arquitectura en una página: [`docs/Arquitectura_ETL_Symmetry.pdf`
 
 ## Instalación (una sola vez, unos 15 minutos)
 
-### Paso 1. Crear el proyecto de BigQuery
-1. Entra a <https://console.cloud.google.com> con tu cuenta.
-2. Arriba, en el selector de proyectos, elige **Proyecto nuevo**. Ponle un nombre (por ejemplo `etl-symmetry`) y pulsa **Crear**.
-3. Copia el **ID del proyecto**. Aparece en la tarjeta "Información del proyecto" (por ejemplo `etl-symmetry-472913`). Lo vas a usar en el paso 3.
-4. **Recomendado:** activa la facturación del proyecto (menú ☰ → Facturación). Sin facturación, BigQuery funciona en "modo Sandbox" y **borra las tablas a los 60 días**. Con este volumen de datos el costo es prácticamente cero, porque cabe en la capa gratuita (10 GB de almacenamiento y 1 TB de consultas al mes).
+### Paso 1. Proyecto de BigQuery configurado
+1. El proyecto de Google Cloud configurado para este ETL es **`g4s-shared-tz1`**.
+2. El dataset **`symmetry`** y las 3 tablas necesarias (`transacciones`, `transacciones_staging`, `cargas`) ya han sido creadas en la región `US`.
+3. **Recomendado:** asegura que la facturación del proyecto esté habilitada para evitar limitaciones del modo Sandbox.
 
 ### Paso 2. Abrir Apps Script dentro del Sheet
 1. Abre el Google Sheet **ETL_Symmetry**.
 2. Menú **Extensiones → Apps Script**. Se abre el editor.
 
 ### Paso 3. Pegar el código
-1. **Code.gs:** borra lo que haya y pega el contenido de `apps_script/Code.gs`. Luego, al inicio del archivo, completa dos datos:
-   - Línea 29, `PROJECT_ID`: reemplaza `PEGAR-AQUI-ID-DEL-PROYECTO` por el ID que copiaste en el paso 1.
+1. **Code.gs:** borra lo que haya y pega el contenido de `Code (3).gs`. Nota que `PROJECT_ID` ya está configurado como `'g4s-shared-tz1'`:
+   - Línea 29, `PROJECT_ID`: `'g4s-shared-tz1'`
    - Línea 41, `EMAIL_RESPONSABLE_CARGA`: el correo de la persona que sube el CSV cada lunes, por ejemplo `'persona@empresa.com'`. A ella le llega el aviso cuando falta el archivo. Para varias personas, sepáralas con coma.
 2. **Portal:** pulsa **＋ → HTML**, nómbralo exactamente `Portal` (sin ".html") y pega el contenido de `apps_script/Portal.html`.
 3. **Manifiesto:** ⚙️ *Configuración del proyecto* → marca **"Mostrar el archivo de manifiesto appsscript.json en el editor"**. Vuelve al editor, abre `appsscript.json` y reemplaza su contenido por el de `apps_script/appsscript.json`. Este archivo activa BigQuery y la zona horaria de Bogotá.

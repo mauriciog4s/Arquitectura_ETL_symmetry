@@ -7,11 +7,11 @@
 -- Reemplace  TU_PROYECTO  por el ID de su proyecto de Google Cloud.
 -- =============================================================================
 
-CREATE SCHEMA IF NOT EXISTS `TU_PROYECTO.symmetry`
+CREATE SCHEMA IF NOT EXISTS `g4s-shared-tz1.symmetry`
 OPTIONS (location = 'US', description = 'ETL Symmetry: transacciones de acceso (tarjetas)');
 
 -- 1) Tabla final: una fila por transacción, sin duplicados (clave lógica: id_transaccion)
-CREATE TABLE IF NOT EXISTS `TU_PROYECTO.symmetry.transacciones` (
+CREATE TABLE IF NOT EXISTS `g4s-shared-tz1.symmetry.transacciones` (
   id_transaccion      INT64    OPTIONS (description = 'Text8: id único de la transacción'),
   cedula              STRING   OPTIONS (description = 'Text10: documento sin puntos. NULL si no vino'),
   nombres             STRING   OPTIONS (description = 'DataCardHolderTransactions_FirstName'),
@@ -30,14 +30,14 @@ CLUSTER BY cedula, lugar
 OPTIONS (description = 'Transacciones consolidadas (sin duplicados)');
 
 -- 2) Staging: recibe cada archivo completo (se reemplaza en cada carga)
-CREATE TABLE IF NOT EXISTS `TU_PROYECTO.symmetry.transacciones_staging` (
+CREATE TABLE IF NOT EXISTS `g4s-shared-tz1.symmetry.transacciones_staging` (
   id_transaccion INT64, cedula STRING, nombres STRING, apellidos STRING, fecha_hora DATETIME,
   fecha_hora_original STRING, lugar STRING, sentido STRING, id_carga STRING, archivo_origen STRING, fila_origen INT64
 )
 OPTIONS (description = 'Zona intermedia: última carga enviada');
 
 -- 3) Auditoría: una fila por archivo procesado (completado o con error)
-CREATE TABLE IF NOT EXISTS `TU_PROYECTO.symmetry.cargas` (
+CREATE TABLE IF NOT EXISTS `g4s-shared-tz1.symmetry.cargas` (
   id_carga STRING, archivo STRING, file_id STRING, md5 STRING, estado STRING,
   filas_csv INT64, transacciones INT64, validas INT64, rechazadas INT64, sin_cedula INT64,
   duplicadas_archivo INT64, insertadas INT64, ya_existian INT64,
@@ -52,17 +52,17 @@ OPTIONS (description = 'Auditoría: una fila por archivo procesado');
 
 -- Control de integridad: debe devolver 0 filas (ningún id repetido)
 SELECT id_transaccion, COUNT(*) AS veces
-FROM `TU_PROYECTO.symmetry.transacciones`
+FROM `g4s-shared-tz1.symmetry.transacciones`
 GROUP BY id_transaccion HAVING COUNT(*) > 1;
 
 -- Historial de cargas
 SELECT inicio, archivo, estado, transacciones, insertadas, ya_existian, rechazadas, fecha_min, fecha_max, mensaje
-FROM `TU_PROYECTO.symmetry.cargas`
+FROM `g4s-shared-tz1.symmetry.cargas`
 ORDER BY inicio DESC;
 
 -- Movimientos de una persona en un rango de fechas
 SELECT fecha_hora, lugar, sentido
-FROM `TU_PROYECTO.symmetry.transacciones`
+FROM `g4s-shared-tz1.symmetry.transacciones`
 WHERE cedula = '1007629528'
   AND fecha_hora BETWEEN '2025-09-08' AND '2025-09-16'
 ORDER BY fecha_hora;
@@ -71,5 +71,5 @@ ORDER BY fecha_hora;
 SELECT DATE(fecha_hora) AS dia,
        COUNTIF(sentido = 'ENTRADA') AS entradas,
        COUNTIF(sentido = 'SALIDA')  AS salidas
-FROM `TU_PROYECTO.symmetry.transacciones`
+FROM `g4s-shared-tz1.symmetry.transacciones`
 GROUP BY dia ORDER BY dia DESC;
