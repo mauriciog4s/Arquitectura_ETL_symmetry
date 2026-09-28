@@ -26,7 +26,7 @@
 // 1. CONFIGURACIÓN  (lo único que normalmente hay que tocar es PROJECT_ID)
 // ============================================================================
 const CONFIG = {
-  PROJECT_ID: 'PEGAR-AQUI-ID-DEL-PROYECTO',          // ID del proyecto de Google Cloud donde vive BigQuery
+  PROJECT_ID: 'g4s-shared-tz1',                      // ID del proyecto de Google Cloud donde vive BigQuery
   DATASET: 'symmetry',                               // Dataset de BigQuery (se crea solo)
   UBICACION_BQ: 'US',                                // Región del dataset
   SPREADSHEET_ID: '1ptkkcxqZRF5UT8tVMzCgLhxkbfhfYVNp8_Q6sK2wymQ',  // Google Sheet "ETL_Symmetry"
