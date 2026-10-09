@@ -131,6 +131,12 @@
   .tip { position: fixed; pointer-events: none; background: var(--surface); border: 1px solid var(--border); color: var(--text);
     padding: 8px 10px; border-radius: 8px; font-size: 12px; box-shadow: 0 6px 20px rgba(0,0,0,.15); z-index: 20; }
   .tip b { font-variant-numeric: tabular-nums; }
+  .filtros-datos { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 10px 12px; margin: 10px 0 14px; align-items: end; }
+  .campo { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--text-2); }
+  .campo input, .campo select { flex: none; width: 100%; min-width: 0; }
+  .campo .chk { display: flex; align-items: center; gap: 6px; height: 34px; color: var(--text); font-size: 13px; }
+  .campo .chk input { width: auto; flex: none; }
+  .campo .btns { display: flex; gap: 8px; }
 </style>
 </head>
 <body>
@@ -163,7 +169,8 @@
     ENVIANDO: 'Enviando a BigQuery', ENVIADO: 'En staging', CONSOLIDANDO: 'Consolidando', CONSOLIDADO: 'Por verificar',
     VERIFICADO: 'Por limpiar', COMPLETADO: 'Completado', ERROR: 'Error', DUPLICADO: 'Duplicado', IGNORADO: 'Ignorado',
   };
-  let D = null, tabActual = 'archivos', bq = null;
+  let D = null, tabActual = 'archivos', bq = null, datosRes = null;
+  const datosF = { desde: '', hasta: '', cedula: '', nombre: '', lugar: '', sentido: '', archivo: '', id: '', sinCedula: false, limite: '100' };
 
   const $ = s => document.querySelector(s);
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -269,6 +276,7 @@
         <button class="tab" data-t="log">Log <span class="n">${log.length}</span></button>
         <button class="tab" data-t="errores">Errores de datos <span class="n">${errores.length}</span></button>
         <button class="tab" data-t="bigquery">BigQuery</button>
+        <button class="tab" data-t="datos">Ver registros</button>
       </div>
       <div id="panel-archivos" class="panel">${tablaArchivos(cargas)}</div>
       <div id="panel-log" class="panel">
@@ -284,12 +292,14 @@
         <div class="filtros"><button id="btnBQ" onclick="consultarBQ()">Consultar BigQuery en vivo</button>
           <span class="sub" style="align-self:center">Consulta pequeña a la tabla <b>${esc(c.dataset)}.transacciones</b></span></div>
         <div id="bqRes">${bq ? '' : '<div class="card vacio">Pulse el botón para ver los totales actuales en BigQuery.</div>'}</div>
-      </div>`;
+      </div>
+      <div id="panel-datos" class="panel">${panelDatos()}</div>`;
 
     document.querySelectorAll('.tab').forEach(b => b.onclick = () => mostrarTab(b.dataset.t));
     ['#fNivel', '#fEtapa', '#fTexto'].forEach(s => $(s).oninput = () => pintarLog(log));
     pintarLog(log);
     if (bq) pintarBQ(bq);
+    iniciarDatos();
     mostrarTab(tabActual);
   }
 
@@ -434,8 +444,79 @@
     });
   }
 
+  // ---- Ver registros (consulta con filtros a la tabla final de BigQuery) ----
+  function panelDatos() {
+    return `
+      <div class="aviso info">Consulta de solo lectura a <b>${esc(D.config.dataset)}.transacciones</b> en BigQuery, hecha con la cuenta de servicio del ETL.
+        Muestra primero lo más reciente. <div class="sub">Contiene datos personales (cédula y nombre): mantenga el portal en acceso "Solo yo".</div></div>
+      <div class="filtros-datos">
+        <label class="campo">Desde<input type="date" data-k="desde"></label>
+        <label class="campo">Hasta<input type="date" data-k="hasta"></label>
+        <label class="campo">Cédula<input data-k="cedula" placeholder="1007629528" inputmode="numeric" autocomplete="off"></label>
+        <label class="campo">Nombre o apellido<input data-k="nombre" placeholder="contiene…" autocomplete="off"></label>
+        <label class="campo">Lugar<input data-k="lugar" placeholder="contiene…" autocomplete="off"></label>
+        <label class="campo">Sentido<select data-k="sentido"><option value="">Todos</option><option>ENTRADA</option><option>SALIDA</option><option>OTRO</option></select></label>
+        <label class="campo">Archivo o carga<input data-k="archivo" placeholder="nombre del CSV…" autocomplete="off"></label>
+        <label class="campo">ID de transacción<input data-k="id" placeholder="19164765" inputmode="numeric" autocomplete="off"></label>
+        <label class="campo">Mostrar<select data-k="limite"><option>50</option><option>100</option><option>200</option><option>500</option></select></label>
+        <label class="campo"><span>&nbsp;</span><span class="chk"><input type="checkbox" data-k="sinCedula"> Solo sin cédula</span></label>
+        <div class="campo"><span>&nbsp;</span><span class="btns"><button id="btnDatos" class="primario" onclick="buscarDatos()">Buscar</button>
+          <button onclick="limpiarDatos()">Limpiar</button></span></div>
+      </div>
+      <div id="datosRes">${datosRes ? '' : '<div class="card vacio">Elija filtros y pulse <b>Buscar</b>. Sin filtros muestra los registros más recientes.</div>'}</div>`;
+  }
+
+  function iniciarDatos() {
+    document.querySelectorAll('#panel-datos [data-k]').forEach(el => {
+      const k = el.dataset.k;
+      if (el.type === 'checkbox') el.checked = !!datosF[k]; else el.value = datosF[k];
+      el.oninput = el.onchange = () => { datosF[k] = el.type === 'checkbox' ? el.checked : el.value; };
+      el.onkeydown = ev => { if (ev.key === 'Enter') buscarDatos(); };
+    });
+    if (datosRes) pintarDatos();
+  }
+
+  function limpiarDatos() {
+    Object.keys(datosF).forEach(k => datosF[k] = k === 'sinCedula' ? false : k === 'limite' ? '100' : '');
+    datosRes = null;
+    $('#panel-datos').innerHTML = panelDatos();
+    iniciarDatos();
+  }
+
+  function buscarDatos() {
+    const estado = (ocupado) => { const b = $('#btnDatos'); if (b) { b.disabled = ocupado; b.textContent = ocupado ? 'Buscando…' : 'Buscar'; } };
+    estado(true);
+    google.script.run
+      .withSuccessHandler(r => { estado(false); datosRes = r; pintarDatos(); })
+      .withFailureHandler(e => { estado(false); datosRes = null;
+        const c = $('#datosRes'); if (c) c.innerHTML = '<div class="card crit">No se pudo consultar: ' + esc(e.message) + '</div>'; })
+      .portalConsultarDatos(Object.assign({}, datosF));
+  }
+
+  function pintarDatos() {
+    const c = $('#datosRes'), r = datosRes;
+    if (!c || !r) return;
+    if (!r.filas.length) { c.innerHTML = '<div class="card vacio">Sin registros con esos filtros.</div>'; return; }
+    const filas = aObj(r.columnas, r.filas);
+    const nota = r.total > filas.length
+      ? `Mostrando ${num(filas.length)} de ${num(r.total)} coincidencias (las más recientes). Afine los filtros para ver el resto.`
+      : `${num(r.total)} coincidencia${r.total === 1 ? '' : 's'}.`;
+    const clase = s => s === 'ENTRADA' ? 'ok' : s === 'SALIDA' ? 'info' : 'neutro';
+    c.innerHTML = `<div class="sub" style="margin-bottom:8px"><b>${nota}</b>${r.mascara ? ' · Cédula parcial (CONFIG.MASCARAR_CEDULA).' : ''}</div>
+      <div class="tabla"><table><thead><tr><th>Fecha y hora</th><th>Cédula</th><th>Nombres</th><th>Apellidos</th><th>Lugar</th>
+        <th>Sentido</th><th>ID transacción</th><th>Archivo</th></tr></thead><tbody>` +
+      filas.map(f => `<tr>
+        <td class="nw">${esc(f.fecha_hora)}</td>
+        <td class="nw">${f.cedula ? esc(f.cedula) : '<span class="sub">—</span>'}</td>
+        <td>${esc(f.nombres)}</td><td>${esc(f.apellidos)}</td><td>${esc(f.lugar)}</td>
+        <td><span class="badge ${clase(f.sentido)}">${esc(f.sentido)}</span></td>
+        <td class="nw">${esc(f.id_transaccion)}</td>
+        <td>${esc(f.archivo_origen)}<div class="sub">${esc(f.id_carga)}</div></td>
+      </tr>`).join('') + '</tbody></table></div>';
+  }
+
   cargar();
-  setInterval(() => { if (!document.hidden && !$('#btnProcesar').disabled) cargar(); }, 60000);
+  setInterval(() => { if (!document.hidden && !$('#btnProcesar').disabled && tabActual !== 'datos') cargar(); }, 60000);
 </script>
 </body>
 </html>
