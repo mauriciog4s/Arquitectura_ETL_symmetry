@@ -28,3 +28,83 @@ Nuevas notas:
 2.2: Propiedad: oauth2.BigQueryAPI, Valor: {"access_token":"ya29.c.c0AZ4bNpbDA9BEPXugzAQ51dSg3pEG2KWxN4mEd-dqIDA4eHoheBa9794dlQVq7zrsRCdC9rnVwETqTmah7-xKAZp58GZcRiiLFTi3E42lgKEe17Pj3CFQudhc6Ni6Ka5gnGsRnkZeGpP4oCoSGbfJiebRm71YOhh31KWvtDMRj70_gHkOatPkQVOhvqoDCE2VPwxCSQVoe6c8UnveT_lqmLQPnn75wwn3IN_peQLHX8O18BD-2lXc-UEku9ijwZ4cStBZwVduJ4HrAO1jFlACe_LxoUriZcKjV3GJRLRClXO8GQ73-f9raNJo8BAavbMoWbK0fx-Bse9S7IdoE2nKCxGKz4-4BxNBhAP6nFM89g2EYnLKx6N02SwH384P-6YsUeUQp7fkOgy94j3-dzzBsSrQYq-zfcWYgXjjYvOksd5oQpojmWk8Vjl9t10hmkbdWd3B77ekbikbWnp1jz30iQ12IJx9J3V5WiwXo-sRuwwQ9mwQjkWf22S2OWnBagUnag44k4W92pQ23aZikatx2y_zSsXMxjWISB8BQOF3ksJr4eQ3UiRJ-r_mbo_4JojjFx5__8RtgUmmW4jUuXtXeng_y71d6y0aUQUru0q2yZebrygwk4uYS-R3F_3fh9FvZtRt3Yu2JgeYQzkQc2ZYxdRQFif_II-MMlI4ykdUZXkz8vMrz7sRdXMpYZJSY281o4jwWZcQ-mtjeWoB4lzzqs1SFFo4JU7xctnkZb0so_92Mahnn92amks1d7er13UoYbIkY0pkwrRmk562mSM9V81UO4Iu0j8YOYxXrvJMmsQthM77BM_BUuzfRnt1fRfOnx97fv1wVmXllnVxqRc8-7d90jMYFkYn-wfa49lSX8OuYbQzcM3l8fi7lBl_bJ-do4O8be-fyIkikbRqd-hXothd1yeUy2oVQnfx_Wcyon3wnFbd6Ol08a6gy7Ovk5oeS5pRItYmVipff2nfd0YRj-JXXXzFphhtmtaeiir4w2myoVgs-U8xlVg","expires_in":3599,"token_type":"Bearer","expiresAt":1791564128}
 
 Archivos en el Appscript actualizados: appsscript.json, Código.gs, Portal.html
+
+LOGS
+
+Logs del script: Instalar
+
+Registro de ejecución
+11.37.39 a.II. AVTSO
+11:37:42 a.m.
+se incio la ejecution
+Información [INFO] SISTEMA - Hojas listas en "Transaccional Gs | Bq": Transaccional, Control_Archivos,
+11:37:43 a.m. Información [INFO] SISTEMA - Carpeta de entrada accesible: "Reportes CSV"
+Log, Errores
+11:37:43 a.m. Información [INFO] SISTEMA - Cuenta de servicio de BigQuery: tz1-bigquery@g4s-shared-tz1.iam.gserviceaccount.com
+11:37:46 a.m. Información [INFO] SISTEMA - BigQuery listo: g4s-shared-tz1.symmetry (transacciones, transacciones_staging, cargas)
+11:37:47 a.m. Información [INFO] SISTEMA - Ejecución automática: cada lunes a las 12:00
+11:37:47 a.m. Información [ADVERTENCIA] SISTEMA - CONFIG.EMAIL_RESPONSABLE_CARGA está vacío: el aviso de "falta el CSV" solo le llegará a usted.
+11:37:47 a.m. Información [INFO] SISTEMA - Instalación completada
+☑
+11:37:48 a.m. Aviso
+Se completó la ejecución
+
+--------------------------------------------------
+
+Logs del script: Procesar
+
+Registro de ejecución
+11:45:05 a.m.	Aviso	Se inició la ejecución
+11:45:23 a.m.	Información	[INFO] RECIBO REPORTE DE ACCESOS SYMMETRY 21 JUL- 1 SEP 2025 - REPORTE DE ACCESOS SYMMETRY 21 JUL- 1 SEP 2025.csv - Archivo nuevo recibido (26128 KB, md5 55c12de5…)
+11:45:29 a.m.	Información	[INFO] RECIBO REPORTE SYMMETRY 01 SEP -08 SEP.csv - Archivo nuevo recibido (4724 KB, md5 bc6d39cc…)
+11:45:33 a.m.	Información	[INFO] RECIBO REPORTE SYMMETRY 08-15 SEP.csv - Archivo nuevo recibido (5273 KB, md5 47696ae4…)
+11:45:39 a.m.	Información	[INFO] RECIBO REPORTE SYMMETRY 15-22 SEP.csv - Archivo nuevo recibido (4354 KB, md5 6dcdafbd…)
+11:45:44 a.m.	Información	[INFO] RECIBO REPORTE SYMMETRY 22-29 SEP.csv - Archivo nuevo recibido (4572 KB, md5 1f9914ae…)
+11:45:58 a.m.	Información	[INFO] RECIBO SYMMETRY 01-06 OCTUBRE.csv - Archivo nuevo recibido (22275 KB, md5 464d45a5…)
+11:46:02 a.m.	Información	[INFO] RECIBO REPORTE SYMETRY 06-13 OCTUBRE.csv - Archivo nuevo recibido (4435 KB, md5 3eaa03de…)
+11:46:07 a.m.	Información	[INFO] RECIBO SYMMETRY 13-20 OCTUBRE.csv - Archivo nuevo recibido (3579 KB, md5 92df08d3…)
+11:46:12 a.m.	Información	[INFO] RECIBO REPORTE SYMMETRY 20-27 OCTUBRE.csv - Archivo nuevo recibido (4601 KB, md5 6ad94826…)
+11:46:16 a.m.	Información	[INFO] RECIBO REPORTE SYMMETRY 27-03 NOVIEMBRE.csv - Archivo nuevo recibido (4446 KB, md5 5ab76564…)
+11:46:20 a.m.	Información	[INFO] RECIBO REPORTE SYMMETRY 03-10 DE NOVIEMBRE.csv - Archivo nuevo recibido (3953 KB, md5 aa843826…)
+11:46:24 a.m.	Información	[INFO] RECIBO REPORTE SYMMETRY 10-17 NOVIEMBRE.csv - Archivo nuevo recibido (4510 KB, md5 7f539506…)
+11:46:27 a.m.	Información	[INFO] RECIBO RESPORTE SYMMETRY 17-24 NOV.csv - Archivo nuevo recibido (3671 KB, md5 73ea2fda…)
+11:46:31 a.m.	Información	[INFO] RECIBO REPORTE SYMMETRY 24-01 DIC.csv - Archivo nuevo recibido (4698 KB, md5 ddb126d5…)
+11:46:35 a.m.	Información	[INFO] RECIBO RESPORTE SYMMETRY 01-08 DIC 2025.csv - Archivo nuevo recibido (4492 KB, md5 573390c8…)
+11:46:38 a.m.	Información	[INFO] RECIBO SYMMETRY 8-15 DICIEMBRE 2025.csv - Archivo nuevo recibido (3769 KB, md5 e2dc2217…)
+11:46:42 a.m.	Información	[INFO] RECIBO SYMMETRY 14-22 DIC.csv - Archivo nuevo recibido (4066 KB, md5 2c1cfdc7…)
+11:46:45 a.m.	Información	[INFO] RECIBO SYMMETRY 21-29 DIC.csv - Archivo nuevo recibido (3203 KB, md5 e11f00b1…)
+11:46:50 a.m.	Información	[INFO] RECIBO SYMMETRY 04 - 13 ENERO.csv - Archivo nuevo recibido (309 KB, md5 de044149…)
+11:46:53 a.m.	Información	[INFO] RECIBO SYMMETRY 12 - 19 ENERO.csv - Archivo nuevo recibido (3278 KB, md5 c6fc5471…)
+11:46:57 a.m.	Información	[INFO] RECIBO SYMMETRY 19-26 ENERO 2026.csv - Archivo nuevo recibido (3698 KB, md5 d118dd9b…)
+11:47:03 a.m.	Información	[INFO] RECIBO SYMMETRY 26-02 FEBRERO.csv - Archivo nuevo recibido (4470 KB, md5 edad577c…)
+11:47:06 a.m.	Información	[INFO] RECIBO SYMMETRY 02-09 FEBRERO 2026.csv - Archivo nuevo recibido (2440 KB, md5 dfe38209…)
+11:47:09 a.m.	Información	[INFO] RECIBO SYMMETRY 09-16 FEBRERO.csv - Archivo nuevo recibido (2594 KB, md5 e11f6a85…)
+11:47:12 a.m.	Información	[INFO] RECIBO SYMMETRY 16-23 FEBRERO.csv - Archivo nuevo recibido (2439 KB, md5 5056641d…)
+11:47:15 a.m.	Información	[INFO] RECIBO SYMMETRY 02-09 MARZO.csv - Archivo nuevo recibido (2486 KB, md5 bdb0fff7…)
+11:47:19 a.m.	Información	[INFO] RECIBO SYMMETRY 09-16 MARZO.csv - Archivo nuevo recibido (2859 KB, md5 a8c238a6…)
+11:47:23 a.m.	Información	[INFO] RECIBO SYMETRY 16-24 MARZO.csv - Archivo nuevo recibido (4043 KB, md5 7726d65f…)
+11:47:26 a.m.	Información	[INFO] RECIBO SYMETRY 30-06 ABRIL.csv - Archivo nuevo recibido (3069 KB, md5 ab8b8091…)
+11:47:30 a.m.	Información	[INFO] RECIBO SYMMETRY 06-13 ABRIL.csv - Archivo nuevo recibido (4193 KB, md5 45905b19…)
+11:47:34 a.m.	Información	[INFO] RECIBO SYMMETRY 16-20 ABRIL.csv - Archivo nuevo recibido (4049 KB, md5 3fc13098…)
+11:47:37 a.m.	Información	[INFO] RECIBO SYMETRY 20-27 ABRIL.csv - Archivo nuevo recibido (4183 KB, md5 57ce13e6…)
+11:47:41 a.m.	Información	[INFO] RECIBO SYMMETRY 04-11 MAYO.csv - Archivo nuevo recibido (4201 KB, md5 7b542f47…)
+11:47:45 a.m.	Información	[INFO] RECIBO REPORTE SYMMETRY 11-18 MAYO.csv - Archivo nuevo recibido (4333 KB, md5 9304d708…)
+11:47:49 a.m.	Información	[INFO] RECIBO SYMMETRY 25-01 JUN.csv - Archivo nuevo recibido (4940 KB, md5 4e4a20aa…)
+11:47:53 a.m.	Información	[INFO] RECIBO REPORTE SYMMETRY 01-08 JUNIO.csv - Archivo nuevo recibido (4556 KB, md5 d64caae8…)
+11:47:58 a.m.	Información	[INFO] RECIBO REPORTE SYMMETRY 08 -15 JUNIO.csv - Archivo nuevo recibido (4363 KB, md5 defd2a2d…)
+11:48:01 a.m.	Información	[INFO] RECIBO REPORTE SYMMETRY 15-22 JUNIO.csv - Archivo nuevo recibido (3970 KB, md5 e507868e…)
+11:48:05 a.m.	Información	[INFO] RECIBO SYMMETRY 22-29 JUN.csv - Archivo nuevo recibido (4250 KB, md5 207509c1…)
+11:48:08 a.m.	Información	[INFO] RECIBO REPORTE SYMMETRY 29 JUL 06 JULIO.csv - Archivo nuevo recibido (3838 KB, md5 58b4d7a7…)
+11:48:11 a.m.	Información	[INFO] RECIBO REPORTE SYMMETRY 13-20 JULIO.csv - Archivo nuevo recibido (3335 KB, md5 4ca9ecf4…)
+11:48:14 a.m.	Información	[INFO] RECIBO SYMMETRY 20-27 JULIO.csv - Archivo nuevo recibido (3598 KB, md5 5d9f5524…)
+11:48:18 a.m.	Información	[INFO] RECIBO REPORTE SYMMETRY SEPT 15 AL 21.csv - Archivo nuevo recibido (3498 KB, md5 4457e1e4…)
+11:48:22 a.m.	Información	[INFO] RECIBO REPORTE SYMMETRY AGOST 25 AL 01 SEPT.csv - Archivo nuevo recibido (3575 KB, md5 0601b361…)
+11:48:26 a.m.	Información	[INFO] RECIBO REPORTE SYMMETRY SEPT 08 AL 15.csv - Archivo nuevo recibido (4187 KB, md5 0de81151…)
+11:48:29 a.m.	Información	[INFO] RECIBO REPORTE SYMMETRY SEPT 01 AL 08.csv - Archivo nuevo recibido (3725 KB, md5 f972375c…)
+11:48:33 a.m.	Información	[INFO] RECIBO REPORTE SYMMETRY AGOST 18 AL 25.csv - Archivo nuevo recibido (3908 KB, md5 17d372d8…)
+11:48:36 a.m.	Información	[INFO] RECIBO REPORTE SYMMETRY AGOST 11 AL 18.csv - Archivo nuevo recibido (3658 KB, md5 8dc2fdab…)
+11:48:40 a.m.	Información	[INFO] RECIBO REPORTE SYMMETRY SEPT 21 AL 28.csv - Archivo nuevo recibido (3933 KB, md5 1d3b8ce0…)
+11:48:43 a.m.	Información	[INFO] RECIBO REPORTE SYMMETRY SEPT 28 AL 05 OCT.csv - Archivo nuevo recibido (3707 KB, md5 da877ea3…)
+11:49:05 a.m.	Información	[INFO] ORGANIZACION REPORTE DE ACCESOS SYMMETRY 21 JUL- 1 SEP 2025 - REPORTE DE ACCESOS SYMMETRY 21 JUL- 1 SEP 2025.csv - CSV leído: 843930 filas crudas → 249888 transacciones (249888 válidas, 0 rechazadas, 0 repetidas, 24440 sin cédula, 0 nombres sin transacción). Rango: 2025-07-21 00:09:00 a 2025-09-01 23:57:00
+11:49:06 a.m.	Información	[INFO] ORGANIZACION REPORTE DE ACCESOS SYMMETRY 21 JUL- 1 SEP 2025 - REPORTE DE ACCESOS SYMMETRY 21 JUL- 1 SEP 2025.csv - Escritas 0 de 249888 filas en el Sheet; continúa solo en 10 min
+11:49:09 a.m.	Aviso	Se completó la ejecución
