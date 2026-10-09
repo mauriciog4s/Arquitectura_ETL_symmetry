@@ -2,14 +2,22 @@
  * ETL SYMMETRY  ·  CSV (Drive)  →  Google Sheet "Transaccional"  →  BigQuery
  * -----------------------------------------------------------------------------
  * Archivos de este proyecto de Apps Script:
- *   Code.gs          → toda la lógica (este archivo)
+ *   Código.gs        → toda la lógica (este archivo)
  *   Portal.html      → portal web de monitoreo
- *   appsscript.json  → manifiesto (zona horaria + servicio BigQuery)
+ *   appsscript.json  → manifiesto (zona horaria + biblioteca OAuth2)
+ *
+ * Cómo se conecta a BigQuery (ya no se usa el "servicio avanzado de BigQuery"):
+ *   · Biblioteca OAuth2 (identificador "OAuth2") → firma el acceso de la cuenta de servicio.
+ *   · Propiedades de la secuencia de comandos → GOOGLE_CLOUD_CREDS = JSON completo de la llave de la cuenta de servicio.
+ *   · La propiedad oauth2.BigQueryAPI la crea y renueva la biblioteca sola (guarda el token); no hay que tocarla.
+ *   · Las llamadas a BigQuery van por su API REST con UrlFetchApp (sección 8 de este archivo).
  *
  * Funciones que usted puede ejecutar a mano (editor ▶ Ejecutar):
+ *   probarConexion()        → comprueba que la cuenta de servicio entra a BigQuery. Hágalo PRIMERO.
  *   instalar()              → prepara las hojas, BigQuery y la ejecución semanal. Se puede repetir sin riesgo.
  *   procesar()              → corre el ETL ahora (lo mismo que el botón "Procesar ahora" del portal).
  *   reintentarCarga('ID')   → vuelve a procesar una carga que quedó en ERROR.
+ *   reiniciarAutenticacion()→ borra el token guardado (úselo si cambió la llave de la cuenta de servicio).
  *   pausarAutomatizacion()  → apaga el disparador automático (instalar() lo vuelve a encender).
  *
  * Programación: cada lunes a las 12:00 revisa la carpeta y procesa el CSV de la semana anterior.
@@ -56,6 +64,15 @@ const LOTE_ESCRITURA = 10000;
 const DISPARADORES = ['ejecucionSemanal', 'continuarProceso', 'recordatorioArchivo', 'procesar'];
 const DIAS = { MONDAY: [1, 'lunes'], TUESDAY: [2, 'martes'], WEDNESDAY: [3, 'miércoles'], THURSDAY: [4, 'jueves'],
   FRIDAY: [5, 'viernes'], SATURDAY: [6, 'sábado'], SUNDAY: [7, 'domingo'] };
+
+// Acceso a BigQuery con cuenta de servicio (biblioteca OAuth2)
+const AUTH = {
+  PROPIEDAD: 'GOOGLE_CLOUD_CREDS',                     // Propiedad de la secuencia de comandos con el JSON de la llave
+  SERVICIO: 'BigQueryAPI',                             // Nombre del servicio OAuth2 → guarda el token en la propiedad oauth2.BigQueryAPI
+  SCOPE: 'https://www.googleapis.com/auth/bigquery',
+};
+const BQ_API = 'https://bigquery.googleapis.com/bigquery/v2/projects/';
+const BQ_SUBIDA = 'https://bigquery.googleapis.com/upload/bigquery/v2/projects/';
 
 const HOJAS = { TX: 'Transaccional', CONTROL: 'Control_Archivos', LOG: 'Log', ERRORES: 'Errores' };
 const SUBCARPETAS = { OK: 'PROCESADOS', ERROR: 'CON_ERROR', DUPLICADO: 'DUPLICADOS' };
@@ -125,7 +142,7 @@ const ENCABEZADOS_CSV = {
 };
 
 // Contexto de la ejecución actual
-const Ctx = { inicio: Date.now(), ejecucion: '', reg: null, libro: null, bqOk: false };
+const Ctx = { inicio: Date.now(), ejecucion: '', reg: null, libro: null, bqOk: false, creds: null, oauth: null };
 
 // ============================================================================
 // 3. FUNCIONES PRINCIPALES
@@ -149,6 +166,7 @@ function instalar() {
     if (!enCarpeta) Log.aviso('SISTEMA', 'El Google Sheet no está en la carpeta CARPETA_SHEET_ID indicada (no impide funcionar).');
 
     validarConfig_();
+    Log.info('SISTEMA', `Cuenta de servicio de BigQuery: ${credenciales_().client_email}`);
     asegurarBigQuery_(true);
 
     if (!DIAS[CONFIG.DIA_EJECUCION]) throw errorFatal_('CONFIG.DIA_EJECUCION no es válido: use MONDAY, TUESDAY, WEDNESDAY...');
@@ -598,8 +616,7 @@ function pasoEnviar_(reg, recienLanzado) {
     });
     return JSON.stringify(o);
   }).join('\n');
-  const blob = Utilities.newBlob(ndjson, 'application/octet-stream');
-  if (blob.getBytes().length > 45 * 1024 * 1024) {
+  if (Utilities.newBlob(ndjson).getBytes().length > 45 * 1024 * 1024) {   // UrlFetchApp admite hasta 50 MB por envío
     throw errorFatal_('El archivo supera 45 MB al enviarlo a BigQuery; divídalo en dos CSV.');
   }
 
@@ -613,7 +630,7 @@ function pasoEnviar_(reg, recienLanzado) {
       writeDisposition: 'WRITE_TRUNCATE', createDisposition: 'CREATE_IF_NEEDED',
       schema: { fields: ESQUEMA_TX }, maxBadRecords: 0,
     } },
-  }, blob);
+  }, ndjson);
   Log.info(etapa, `${filas.length} filas enviadas a BigQuery (job ${reg.job_id})`);
   return pasoEnviar_(reg, true);
 }
@@ -1068,8 +1085,163 @@ function registrarErrores_(reg, lista) {
 }
 
 // ============================================================================
-// 8. BIGQUERY
+// 8. BIGQUERY  (API REST + cuenta de servicio con la biblioteca OAuth2)
 // ============================================================================
+
+/** Lee y valida la llave de la cuenta de servicio guardada en Propiedades de la secuencia de comandos. */
+function credenciales_() {
+  if (Ctx.creds) return Ctx.creds;
+  const crudo = PropertiesService.getScriptProperties().getProperty(AUTH.PROPIEDAD);
+  if (!crudo) {
+    throw errorFatal_(`Falta la propiedad ${AUTH.PROPIEDAD} en Propiedades de la secuencia de comandos (JSON de la llave de la cuenta de servicio).`);
+  }
+  let c;
+  try {
+    c = JSON.parse(crudo);
+  } catch (e) {
+    throw errorFatal_(`La propiedad ${AUTH.PROPIEDAD} no es un JSON válido (¿se cortó al pegarla?): ${e.message}`);
+  }
+  if (!c || !c.private_key || !c.client_email) {
+    throw errorFatal_(`La propiedad ${AUTH.PROPIEDAD} debe traer "private_key" y "client_email".`);
+  }
+  Ctx.creds = c;
+  return c;
+}
+
+/** Servicio OAuth2 de la cuenta de servicio. La biblioteca guarda el token en la propiedad oauth2.BigQueryAPI y lo renueva sola. */
+function servicioOAuth_() {
+  if (Ctx.oauth) return Ctx.oauth;
+  const c = credenciales_();
+  Ctx.oauth = OAuth2.createService(AUTH.SERVICIO)
+    .setTokenUrl('https://oauth2.googleapis.com/token')
+    .setPrivateKey(c.private_key)
+    .setIssuer(c.client_email)
+    .setPropertyStore(PropertiesService.getScriptProperties())
+    .setCache(CacheService.getScriptCache())
+    .setScope(AUTH.SCOPE);
+  return Ctx.oauth;
+}
+
+/** Token vigente para llamar a BigQuery. */
+function tokenBQ_() {
+  const servicio = servicioOAuth_();
+  const falla = texto => {
+    const e = new Error(`No se pudo obtener el acceso a BigQuery con la cuenta de servicio: ${texto}`);
+    e.fatal = /invalid_grant|invalid_client|unauthorized_client|invalid_scope|invalid_request|Invalid JWT|private.?key/i.test(texto);
+    return e;
+  };
+  let ok;
+  try {
+    ok = servicio.hasAccess();
+  } catch (e) {
+    throw falla(e.message);
+  }
+  if (!ok) {
+    const ultimo = servicio.getLastError();
+    throw falla(ultimo ? (ultimo.message || String(ultimo)) : 'sin detalle');
+  }
+  return servicio.getAccessToken();
+}
+
+/**
+ * Llama a la API REST de BigQuery y devuelve el JSON de respuesta.
+ * Si BigQuery responde con error, lanza un Error con el mensaje original de BigQuery
+ * (así el resto del código reconoce "Not found", "Already Exists", "Access Denied"...).
+ * Reintenta solo los fallos temporales (429, 5xx, timeouts).
+ */
+function bq_(descripcion, metodo, ruta, extra) {
+  const ex = extra || {};
+  const url = (ex.subida ? BQ_SUBIDA : BQ_API) + encodeURIComponent(CONFIG.PROJECT_ID) + ruta + parametrosUrl_(ex.consulta);
+  return conReintentos_(() => {
+    for (let intento = 0; ; intento++) {
+      const pedido = { method: metodo, headers: { Authorization: 'Bearer ' + tokenBQ_() }, muteHttpExceptions: true };
+      if (ex.subida) {
+        pedido.contentType = 'multipart/related; boundary=' + ex.subida.limite;
+        pedido.payload = ex.subida.cuerpo;
+      } else if (ex.cuerpo) {
+        pedido.contentType = 'application/json';
+        pedido.payload = JSON.stringify(ex.cuerpo);
+      }
+      const resp = UrlFetchApp.fetch(url, pedido);
+      const codigo = resp.getResponseCode();
+      if (codigo === 401 && intento === 0) {       // token rechazado: se descarta el guardado y se repite una vez
+        servicioOAuth_().reset();
+        continue;
+      }
+      const texto = resp.getContentText();
+      let json = {};
+      try { json = texto ? JSON.parse(texto) : {}; } catch (e) { json = {}; }
+      if (codigo >= 200 && codigo < 300) return json;
+      throw errorBQ_(codigo, json, texto);
+    }
+  }, descripcion);
+}
+
+function parametrosUrl_(obj) {
+  const claves = Object.keys(obj || {}).filter(k => obj[k] !== undefined && obj[k] !== null && obj[k] !== '');
+  return claves.length ? '?' + claves.map(k => encodeURIComponent(k) + '=' + encodeURIComponent(obj[k])).join('&') : '';
+}
+
+/** Convierte la respuesta de error de BigQuery en un Error legible. */
+function errorBQ_(codigo, json, texto) {
+  const er = (json && json.error) || {};
+  const razon = (er.errors && er.errors[0] && er.errors[0].reason) || er.status || '';
+  const msg = er.message || String(texto || '').slice(0, 300) || 'sin detalle';
+  const e = new Error(`${msg} [HTTP ${codigo}${razon ? ' ' + razon : ''}]`);
+  e.codigo = codigo;
+  e.razon = razon;
+  return e;
+}
+
+/** Cuerpo "multipart" para cargar datos junto con la definición del job en una sola llamada. */
+function multipart_(job, datos) {
+  const limite = 'etl_' + Utilities.getUuid().replace(/-/g, '');
+  const cuerpo = `--${limite}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(job)}\r\n` +
+    `--${limite}\r\nContent-Type: application/octet-stream\r\n\r\n${datos}\r\n--${limite}--`;
+  return { limite, cuerpo };
+}
+
+/** Prueba de conexión. Ejecútela desde el editor antes de instalar(): dice en claro si algo falta. */
+function probarConexion() {
+  iniciarContexto_('PRUEBA');
+  try {
+    validarConfig_();
+    const c = credenciales_();
+    Log.info('SISTEMA', `Cuenta de servicio: ${c.client_email} · Proyecto: ${CONFIG.PROJECT_ID}`);
+    tokenBQ_();
+    Log.info('SISTEMA', '✔ Acceso concedido por Google (llave y biblioteca OAuth2 correctas)');
+    const r = consultar_('SELECT 1');
+    if (String(r[0][0]) !== '1') throw new Error('BigQuery respondió algo inesperado a la consulta de prueba.');
+    Log.info('SISTEMA', '✔ BigQuery acepta consultas (permiso "Usuario de trabajos" OK)');
+    try {
+      const ds = bq_('revisar el dataset', 'get', `/datasets/${encodeURIComponent(CONFIG.DATASET)}`);
+      Log.info('SISTEMA', `✔ Dataset ${ds.id} encontrado (ubicación ${ds.location})`);
+      if (String(ds.location).toUpperCase() !== String(CONFIG.UBICACION_BQ).toUpperCase()) {
+        Log.error('SISTEMA', `El dataset está en ${ds.location} pero CONFIG.UBICACION_BQ dice ${CONFIG.UBICACION_BQ}. Corrija CONFIG.UBICACION_BQ.`);
+        return 'Conexión OK, pero la ubicación del dataset no coincide con CONFIG.UBICACION_BQ. Vea el Log.';
+      }
+    } catch (e) {
+      if (!/not found/i.test(e.message)) throw e;
+      Log.aviso('SISTEMA', `El dataset ${CONFIG.DATASET} no existe todavía: instalar() lo crea.`);
+    }
+    return 'Conexión con BigQuery OK ✔';
+  } catch (e) {
+    Log.error('SISTEMA', 'Falló la prueba de conexión: ' + e.message, { pista: pista_(e.message) });
+    throw e;
+  } finally {
+    Log.flush();
+  }
+}
+
+/** Borra el token guardado (propiedad oauth2.BigQueryAPI). Úselo si cambió la llave de la cuenta de servicio. */
+function reiniciarAutenticacion() {
+  iniciarContexto_('REINICIO_AUTH');
+  validarConfig_();
+  servicioOAuth_().reset();
+  Log.info('SISTEMA', 'Token de BigQuery borrado; se pedirá uno nuevo en la próxima llamada.');
+  Log.flush();
+}
+
 function tabla_(id) { return { projectId: CONFIG.PROJECT_ID, datasetId: CONFIG.DATASET, tableId: id }; }
 function ref_(id) { return '`' + [CONFIG.PROJECT_ID, CONFIG.DATASET, id].join('.') + '`'; }
 function paramTexto_(nombre, valor) {
@@ -1082,12 +1254,16 @@ function asegurarBigQuery_(informar) {
   const P = CONFIG.PROJECT_ID, D = CONFIG.DATASET;
   let ds;
   try {
-    ds = BigQuery.Datasets.get(P, D);
+    ds = bq_('revisar el dataset', 'get', `/datasets/${encodeURIComponent(D)}`);
   } catch (e) {
     if (!/not found/i.test(e.message)) throw e;
-    ds = BigQuery.Datasets.insert({ datasetReference: { projectId: P, datasetId: D }, location: CONFIG.UBICACION_BQ,
-      description: 'ETL Symmetry: transacciones de acceso (tarjetas)' }, P);
+    ds = bq_('crear el dataset', 'post', '/datasets', { cuerpo: { datasetReference: { projectId: P, datasetId: D },
+      location: CONFIG.UBICACION_BQ, description: 'ETL Symmetry: transacciones de acceso (tarjetas)' } });
     Log.info('SISTEMA', `Dataset ${P}.${D} creado en ${CONFIG.UBICACION_BQ}`);
+  }
+  if (ds.location && String(ds.location).toUpperCase() !== String(CONFIG.UBICACION_BQ).toUpperCase()) {
+    throw errorFatal_(`El dataset ${D} está en la ubicación ${ds.location} pero CONFIG.UBICACION_BQ dice ${CONFIG.UBICACION_BQ}. ` +
+      `Cambie CONFIG.UBICACION_BQ a '${ds.location}'.`);
   }
   if (ds.defaultTableExpirationMs && informar) {
     Log.aviso('SISTEMA', 'El proyecto parece estar en modo Sandbox (las tablas vencen a los 60 días). ' +
@@ -1102,24 +1278,25 @@ function asegurarBigQuery_(informar) {
 }
 
 function asegurarTabla_(id, definicion) {
+  const ruta = `/datasets/${encodeURIComponent(CONFIG.DATASET)}/tables`;
   try {
-    BigQuery.Tables.get(CONFIG.PROJECT_ID, CONFIG.DATASET, id);
+    bq_('revisar la tabla ' + id, 'get', `${ruta}/${encodeURIComponent(id)}`);
   } catch (e) {
     if (!/not found/i.test(e.message)) throw e;
-    BigQuery.Tables.insert(Object.assign({ tableReference: tabla_(id) }, definicion), CONFIG.PROJECT_ID, CONFIG.DATASET);
+    bq_('crear la tabla ' + id, 'post', ruta, { cuerpo: Object.assign({ tableReference: tabla_(id) }, definicion) });
     Log.info('SISTEMA', `Tabla ${CONFIG.DATASET}.${id} creada`);
   }
 }
 
-function lanzarJob_(job, blob) {
-  return conReintentos_(() => {
-    try {
-      return blob ? BigQuery.Jobs.insert(job, CONFIG.PROJECT_ID, blob) : BigQuery.Jobs.insert(job, CONFIG.PROJECT_ID);
-    } catch (e) {
-      if (/already exists/i.test(e.message)) return job;   // un intento previo sí llegó
-      throw e;
-    }
-  }, 'lanzar trabajo en BigQuery');
+/** Lanza un job. Si trae `datos` (texto NDJSON) los sube junto con el job. */
+function lanzarJob_(job, datos) {
+  try {
+    if (datos === undefined) return bq_('lanzar trabajo en BigQuery', 'post', '/jobs', { cuerpo: job });
+    return bq_('enviar datos a BigQuery', 'post', '/jobs', { consulta: { uploadType: 'multipart' }, subida: multipart_(job, datos) });
+  } catch (e) {
+    if (/already exists/i.test(e.message)) return job;   // un intento previo sí llegó
+    throw e;
+  }
 }
 
 /** Espera un job. {terminado, error, job} o {noExiste:true}. */
@@ -1128,7 +1305,7 @@ function esperarJob_(jobId, maxMs) {
   for (;;) {
     let job;
     try {
-      job = conReintentos_(() => BigQuery.Jobs.get(CONFIG.PROJECT_ID, jobId, { location: CONFIG.UBICACION_BQ }), 'consultar trabajo');
+      job = bq_('consultar trabajo', 'get', `/jobs/${encodeURIComponent(jobId)}`, { consulta: { location: CONFIG.UBICACION_BQ } });
     } catch (e) {
       if (/not found: job/i.test(e.message)) return { noExiste: true };
       throw e;
@@ -1155,12 +1332,13 @@ function errorDeJob_(titulo, job) {
 function consultar_(sql, parametros) {
   const pedido = { query: sql, useLegacySql: false, location: CONFIG.UBICACION_BQ, timeoutMs: 60000 };
   if (parametros) { pedido.parameterMode = 'NAMED'; pedido.queryParameters = parametros; }
-  let r = conReintentos_(() => BigQuery.Jobs.query(pedido, CONFIG.PROJECT_ID), 'consultar BigQuery');
+  let r = bq_('consultar BigQuery', 'post', '/queries', { cuerpo: pedido });
   const jobId = r.jobReference.jobId;
   while (!r.jobComplete) {
     if (tiempoRestante_() < 40000) throw new Error('La consulta de BigQuery tardó demasiado; se reintentará.');
     Utilities.sleep(2000);
-    r = BigQuery.Jobs.getQueryResults(CONFIG.PROJECT_ID, jobId, { location: CONFIG.UBICACION_BQ, timeoutMs: 30000 });
+    r = bq_('leer resultados de BigQuery', 'get', `/queries/${encodeURIComponent(jobId)}`,
+      { consulta: { location: CONFIG.UBICACION_BQ, timeoutMs: 30000 } });
   }
   return (r.rows || []).map(fila => fila.f.map(c => c.v));
 }
@@ -1183,7 +1361,7 @@ function registrarCargaBQ_(reg) {
       jobReference: { projectId: CONFIG.PROJECT_ID, location: CONFIG.UBICACION_BQ },
       configuration: { load: { destinationTable: tabla_(TABLAS.CARGAS), sourceFormat: 'NEWLINE_DELIMITED_JSON',
         writeDisposition: 'WRITE_APPEND', schema: { fields: ESQUEMA_CARGAS } } },
-    }, Utilities.newBlob(JSON.stringify(fila), 'application/octet-stream'));
+    }, JSON.stringify(fila));
     Log.info(reg.estado === E.ERROR ? 'SISTEMA' : 'LIMPIEZA', `Auditoría registrada en BigQuery (tabla ${TABLAS.CARGAS})`);
   } catch (e) {
     Log.aviso('SISTEMA', 'No se pudo registrar la auditoría en BigQuery: ' + e.message);
@@ -1266,6 +1444,8 @@ function iniciarContexto_(ejecucion) {
   Ctx.ejecucion = ejecucion;
   Ctx.reg = null;
   Ctx.bqOk = false;
+  Ctx.creds = null;
+  Ctx.oauth = null;
 }
 
 function tiempoRestante_() { return TIEMPO_MAX_MS - (Date.now() - Ctx.inicio); }
@@ -1293,9 +1473,10 @@ function validarConfig_() {
   if (!CONFIG.PROJECT_ID || /PEGAR-AQUI/i.test(CONFIG.PROJECT_ID)) {
     throw errorFatal_('Falta poner el ID del proyecto de Google Cloud en CONFIG.PROJECT_ID (Code.gs, línea 29).');
   }
-  if (typeof BigQuery === 'undefined') {
-    throw errorFatal_('BigQuery is not defined: el servicio avanzado de BigQuery no está activo.');
+  if (typeof OAuth2 === 'undefined') {
+    throw errorFatal_('OAuth2 is not defined: falta agregar la biblioteca OAuth2 al proyecto de Apps Script.');
   }
+  credenciales_();   // falla con un mensaje claro si falta GOOGLE_CLOUD_CREDS o está mal pegada
 }
 
 /** Reintenta operaciones de Google que fallan de forma temporal (espera 2 s, 4 s, 8 s). */
@@ -1317,13 +1498,16 @@ function conReintentos_(fn, descripcion, intentos) {
 }
 
 function esFatalTecnico_(msg) {
-  return /BigQuery is not defined|billing|has not been used|is disabled|SERVICE_DISABLED|Access Denied|PERMISSION_DENIED|Not found: (Dataset|Table|Project)|No item with the given ID/i.test(msg);
+  return /OAuth2 is not defined|GOOGLE_CLOUD_CREDS|billing|has not been used|is disabled|SERVICE_DISABLED|Access Denied|PERMISSION_DENIED|Not found: (Dataset|Table|Project)|No item with the given ID/i.test(msg);
 }
 
 /** Traduce errores técnicos a una indicación práctica. */
 function pista_(msg) {
   const reglas = [
-    [/BigQuery is not defined/i, 'En el editor de Apps Script: Servicios (+) → BigQuery API → Agregar.'],
+    [/OAuth2 is not defined/i, 'En el editor de Apps Script: Bibliotecas (+) → pegue el ID de la biblioteca OAuth2 (está en Notas.txt) → versión 43 → identificador OAuth2.'],
+    [/GOOGLE_CLOUD_CREDS|No se pudo obtener el acceso a BigQuery|invalid_grant|Invalid JWT/i,
+      'Revise Configuración del proyecto → Propiedades de la secuencia de comandos → GOOGLE_CLOUD_CREDS: debe ser el JSON completo de la llave de la cuenta de servicio. ' +
+      'Si cambió la llave, ejecute reiniciarAutenticacion() y luego probarConexion().'],
     [/billing/i, 'El proyecto de Google Cloud necesita facturación habilitada (este volumen cabe en la capa gratuita).'],
     [/has not been used|is disabled|SERVICE_DISABLED/i, 'Active la "BigQuery API" en el proyecto de Google Cloud.'],
     [/Access Denied|PERMISSION_DENIED|permission/i, 'La cuenta que ejecuta el script no tiene permisos (BigQuery: Editor de datos + Usuario de trabajos; Drive/Sheet: Editor).'],
